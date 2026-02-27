@@ -1,0 +1,46 @@
+# Dependências
+node_modules/
+
+# WhatsApp Web JS
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Logs
+*.log
+logs/
+
+# Variáveis de ambiente
+.env
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# VSCode (opcional)
+.vscode/
+
+# Cache geral
+.cache/
+
+# Dependências
+node_modules/
+ChatBot/node_modules/
+
+# WhatsApp Web JS
+.wwebjs_auth/
+.wwebjs_cache/
+ChatBot/.wwebjs_auth/
+ChatBot/.wwebjs_cache/
+
+# Logs
+*.log
+logs/
+
+# Variáveis de ambiente
+.env
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+
