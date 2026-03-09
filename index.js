@@ -112,14 +112,12 @@ client.on('message', async msg => {
             const numeroCliente = contato.number;
 
             const resumo =
-            `📞 NOVO ATENDIMENTO ☀️
-
-            👤 Cliente: ${nomeCliente}
-            📱 Número: https://wa.me/55${numeroCliente}
-            📄 CPF: ${estado.cpf}
-            📧 Email: ${estado.email}
-            📦 Pedido: ${estado.pedido}
-            `;
+            `📞 *NOVO ATENDIMENTO*\n\n` +
+            `👤 Cliente: ${nomeCliente}\n` +
+            `📄 CPF: ${estados[msg.from].cpf}\n` +
+            `📧 Email: ${estados[msg.from].email}\n` +
+            `📱 Número: https://wa.me/55${numeroCliente}\n` +
+            `📦 Pedido: ${estados[msg.from].pedido}`;
 
          
         try {
