@@ -1,249 +1,295 @@
 // =============================
 // BOT WHATSAPP - TRILHA DO SOL
-// VERSÃO ESTÁVEL 2026
 // =============================
 
-const qrcode = require('qrcode-terminal');
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const qrcode = require('qrcode-terminal')
+const { Client, LocalAuth } = require('whatsapp-web.js')
 
-//const NUMERO_ATENDENTE = '5547991919840@c.us';
-const estados = {};
-let botIniciadoEm = Math.floor(Date.now() / 1000);
+const estados = {}
 
 // =============================
-// CONFIGURAÇÃO DO CLIENTE
+// CONFIG CLIENTE
 // =============================
 
 const client = new Client({
-    authStrategy: new LocalAuth({
-        clientId: "bot-trilha-do-sol"
-    }),
-    puppeteer: {
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    }
-});
-
-
+  authStrategy: new LocalAuth({
+    clientId: 'bot-trilha-do-sol'
+  }),
+  puppeteer: {
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  }
+})
 
 // =============================
-// EVENTOS DE CONEXÃO
+// EVENTOS
 // =============================
 
 client.on('qr', qr => {
-    console.log('📱 Escaneie o QR Code abaixo:\n');
-    qrcode.generate(qr, { small: true });
-});
+  console.log('📱 Escaneie o QR Code:')
+  qrcode.generate(qr, { small: true })
+})
 
 client.on('authenticated', () => {
-    console.log('✅ Autenticado com sucesso!');
-});
+  console.log('✅ Autenticado com sucesso!')
+})
 
 client.on('ready', () => {
-    console.log('🚀 WhatsApp conectado com sucesso!');
-});
+  console.log('🚀 WhatsApp conectado com sucesso!')
+})
 
 client.on('auth_failure', msg => {
-    console.error('❌ Falha na autenticação:', msg);
-});
+  console.error('❌ Falha na autenticação:', msg)
+})
 
-client.on('disconnected', async reason => {
-    console.log('⚠️ Cliente desconectado:', reason);
-    console.log('🔄 Tentando reconectar...');
-    await client.initialize();
-});
+client.on('disconnected', reason => {
+  console.log('⚠️ WhatsApp desconectado:', reason)
+})
 
-client.initialize();
+client.initialize()
 
 // =============================
-// FUNÇÃO DELAY
+// DELAY
 // =============================
 
-const delay = ms => new Promise(res => setTimeout(res, ms));
+const delay = ms => new Promise(res => setTimeout(res, ms))
 
 // =============================
 // EVENTO PRINCIPAL
 // =============================
 
-client.on('message', async msg => {
+client.on('message_create', async msg => {
+  if (msg.id.fromMe) return
+  if (!msg.body) return
 
-    // ❌ Ignorar mensagens do próprio bot
-    if (msg.fromMe) return;
+  const texto = msg.body.trim().toLowerCase()
 
-    // ❌ Ignorar grupos
-    if (!msg.from.endsWith('@c.us')) return;
+  console.log('Mensagem:', texto)
+  console.log('Estado atual:', estados[msg.from])
 
-    // ❌ Ignorar mensagens antigas
-    if (msg.timestamp < botIniciadoEm) return;
+  const chat = await msg.getChat()
 
-    if (!msg.body) return;
+  // =============================
+  // FLUXO CPF
+  // =============================
 
-    const chat = await msg.getChat();
-    const texto = msg.body.trim();
+  if (estados[msg.from]?.etapa === 'cpf') {
+    estados[msg.from].cpf = texto
+    estados[msg.from].etapa = 'email'
 
-    // =============================
-    // FLUXO ATENDENTE (PRIORIDADE)
-    // =============================
+    await client.sendMessage(msg.from, '📧 Agora digite seu Email:')
+    return
+  }
 
-    if (estados[msg.from]?.etapa === 'cpf') {
-        estados[msg.from].cpf = texto;
-        estados[msg.from].etapa = 'email';
-        await client.sendMessage(msg.from, '📧 Agora digite seu Email:');
-        return;
+  // =============================
+  // FLUXO EMAIL
+  // =============================
+
+  if (estados[msg.from]?.etapa === 'email') {
+    estados[msg.from].email = texto
+    estados[msg.from].etapa = 'pedido'
+
+    await client.sendMessage(msg.from, '📦 Digite o Número do Pedido:')
+    return
+  }
+
+  // =============================
+  // FLUXO PEDIDO
+  // =============================
+
+  if (estados[msg.from]?.etapa === 'pedido') {
+    estados[msg.from].pedido = texto
+
+    const contato = await msg.getContact()
+
+    const nomeCliente = contato.pushname || contato.name || contato.number
+
+    const numeroCliente = contato.number
+
+    const resumo =
+      `📞 *NOVO ATENDIMENTO*\n\n` +
+      `👤 Cliente: ${nomeCliente}\n` +
+      `📄 CPF: ${estados[msg.from].cpf}\n` +
+      `📧 Email: ${estados[msg.from].email}\n` +
+      `📱 Número: https://wa.me/55${numeroCliente}\n` +
+      `📦 Pedido: ${estados[msg.from].pedido}`
+
+    try {
+      const numeroAtendente = await client.getNumberId('5547991919840')
+
+      if (!numeroAtendente) {
+        console.log('Número do atendente não encontrado no WhatsApp')
+        return
+      }
+
+      await client.sendMessage(numeroAtendente._serialized, resumo)
+    } catch (error) {
+      console.log('Erro ao enviar para atendente:', error)
+
+      await client.sendMessage(
+        msg.from,
+        '⚠️ Não consegui encaminhar para o atendente agora.\nTente novamente em instantes.'
+      )
+
+      return
     }
 
-    if (estados[msg.from]?.etapa === 'email') {
-        estados[msg.from].email = texto;
-        estados[msg.from].etapa = 'pedido';
-        await client.sendMessage(msg.from, '📦 Digite o Número do Pedido:');
-        return;
-    }
+    await client.sendMessage(
+      msg.from,
+      'Obrigado! ☀️\n\n' +
+        'Já enviei suas informações para nosso atendente.\n' +
+        'Em instantes ele continuará o atendimento por aqui.'
+    )
 
-    if (estados[msg.from]?.etapa === 'pedido') {
-        estados[msg.from].pedido = texto;
+    delete estados[msg.from]
 
-            const contato = await msg.getContact();
+    return
+  }
 
-            const nomeCliente =
-                contato.pushname ||
-                contato.name ||
-                contato.number;
+  // =============================
+  // MENU PRINCIPAL
+  // =============================
 
-            const numeroCliente = contato.number;
+  if (!estados[msg.from]) {
+    await delay(1500)
+    await chat.sendStateTyping()
+    await delay(1500)
 
-            const resumo =
-            `📞 *NOVO ATENDIMENTO*\n\n` +
-            `👤 Cliente: ${nomeCliente}\n` +
-            `📄 CPF: ${estados[msg.from].cpf}\n` +
-            `📧 Email: ${estados[msg.from].email}\n` +
-            `📱 Número: https://wa.me/55${numeroCliente}\n` +
-            `📦 Pedido: ${estados[msg.from].pedido}`;
+    const contact = await msg.getContact()
+    const nome = contact.pushname || 'Cliente'
 
-         
-        try {
-            const numberId = await client.getNumberId('5547991919840');
+    await client.sendMessage(
+      msg.from,
+      `Olá, ${nome.split(' ')[0]}! 👋
 
-            if (!numberId) {
-                throw new Error('Número não encontrado no WhatsApp');
-            }
+Sou o Sunny ☀️, assistente virtual da *Trilha do Sol Shop*.
 
-            await client.sendMessage(numberId._serialized, resumo);
+Como podemos te ajudar?
+Digite o número abaixo para saber mais:
 
-        } catch (error) {
-            console.error('Erro ao enviar para atendente:', error);
+1 - 🏕️ Produtos para Camping
+2 - 🌊 Produtos para Praia
+3 - 🔥 Ofertas
+4 - 🚚 Prazo e Frete
+5 - 💳 Formas de Pagamento
+6 - 📦 Acompanhar Pedido
+7 - ❓ Falar com Atendente`
+    )
 
-            await client.sendMessage(msg.from,
-                '⚠️ Não consegui encaminhar para o atendente agora.\nTente novamente em instantes.'
-            );
-        }
+    return
+  }
 
-        await client.sendMessage(msg.from,
-            'Obrigado! ☀️\n\n' +
-            'Já enviei suas informações para nosso atendente.\n' +
-            'Em instantes ele continuará o atendimento por aqui.'
-        );
+  // =============================
+  // OPÇÕES MENU
+  // =============================
 
-        delete estados[msg.from];
-        return;
+  if (texto === '1') {
+    await client.sendMessage(
+      msg.from,
+      `🏕️ Produtos para Camping:
 
-    
-    }
+Nosso site oferece vários artigos para camping.
 
-    // =============================
-    // MENU PRINCIPAL
-    // =============================
+Link: https://www.trilhadosolshop.com.br/camping/`
+    )
 
-    if (texto.match(/(menu|oi|olá|ola|bom dia|boa tarde|boa noite|fiz|bom diaa|pedido|comprei)/i)) {
+    return
+  }
 
-        await delay(1500);
-        await chat.sendStateTyping();
-        await delay(1500);
+  if (texto === '2') {
+    await client.sendMessage(
+      msg.from,
+      `🌊 Produtos para Praia:
 
-        const contact = await msg.getContact();
-        const nome = contact.pushname || "Cliente";
+Nosso site oferece vários artigos para praia.
 
-        await client.sendMessage(msg.from,
-            `Olá, ${nome.split(" ")[0]}! 👋\n\n` +
-            `Sou o Sunny ☀️, assistente virtual da *Trilha do Sol Shop*.\n\n` +
-            `Como podemos te ajudar?\n\n` +
-            `1 - 🏕️ Produtos para Camping\n` +
-            `2 - 🌊 Produtos para Praia\n` +
-            `3 - 🔥 Ofertas\n` +
-            `4 - 🚚 Prazo e Frete\n` +
-            `5 - 💳 Formas de Pagamento\n` +
-            `6 - 📦 Acompanhar Pedido\n` +
-            `7 - ❓ Falar com Atendente`
-        );
-    }
+Link: https://www.trilhadosolshop.com.br/praia/`
+    )
 
-    else if (texto === '1') {
-        await client.sendMessage(msg.from,
-            `🏕️ Produtos para Camping:\n\n` +
-            `Nosso site oferece vários artigos para camping.\n\n` +
-            `Link: https://www.trilhadosolshop.com.br/camping/`
-        );
-    }
+    return
+  }
 
-    else if (texto === '2') {
-        await client.sendMessage(msg.from,
-            `🌊 Produtos para Praia:\n\n` +
-            `Nosso site oferece vários artigos para praia.\n\n` +
-            `Link: https://www.trilhadosolshop.com.br/praia/`
-        );
-    }
+  if (texto === '3') {
+    await client.sendMessage(
+      msg.from,
+      `🔥 Ofertas Imperdíveis:
 
-    else if (texto === '3') {
-        await client.sendMessage(msg.from,
-            `🔥 Ofertas Imperdíveis:\n\n` +
-         `Link: https://www.trilhadosolshop.com.br/promocoes/`
-        );
-    }
+Link: https://www.trilhadosolshop.com.br/promocoes/`
+    )
 
-    else if (texto === '4') {
-        await client.sendMessage(msg.from,
-            `🚚 Prazos e Frete:\n\n` +
-            `O prazo de entrega passa a contar após a confirmação do pagamento e a postagem do pedido.\n\n` +
-            `📦 Produtos enviados a partir do Brasil:` +
-             ` Prazo estimado: 5 a 15 dias úteis.\n\n` +
-             `🌍Produtos enviados a partir do exterior:`+
-             ` Prazo estimado: 15 a 45 dias úteis. \n\n`+
-            `Os prazos informados são estimativas e podem sofrer variações em razão de fatores externos, como logística, períodos de alta demanda, feriados, greves, condições climáticas ou procedimentos operacionais das transportadoras.`+
-            `Para maiores dúvidas, acesse nosso site ou fale conosco aqui mesmo.\n\n` +
-            `Para mais detalhes sobre prazos e frete, acesse:\n\n` +
-            `Link: https://www.trilhadosolshop.com.br/politica-de-entrega/`
-        );
-    }
+    return
+  }
 
-    else if (texto === '5') {
-        await client.sendMessage(msg.from,
-            `💳 Formas de Pagamento:\n\n` +
-            `Todos os preços são apresentados em reais (R$) e podem ser alterados sem aviso prévio.\n\n` +
-            `Aceitamos as seguintes formas de pagamento:\n\n` +
-            `1. Cartão de Crédito: Visa, MasterCard, American Express, Elo e Hipercard.\n` +
-            `2. Boleto Bancário: Disponível para pagamento à vista.\n` +
-            `3. Pix: Pagamento instantâneo via QR Code ou chave Pix.\n\n` +
-            `Os pagamentos são processados por intermediadores financeiros independentes, que possuem seus próprios termos, políticas de segurança e privacidade.\n\n` +
-            `https://www.trilhadosolshop.com.br/termos-de-servico/`
-        );
-    }
+  if (texto === '4') {
+    await client.sendMessage(
+      msg.from,
+      `🚚 Prazos e Frete:
 
-    else if (texto === '6') {
-        await client.sendMessage(msg.from,
-              `📦 Acompanhar Pedido:\n\n` +
-            `Assim que seu pedido for enviado, você receberá um código de rastreio por e-mail.\n\n` +
-            `Em pedidos enviados a partir do exterior, o rastreamento poderá apresentar atualizações intermitentes ou alterações ao ingressar no Brasil, o que não compromete a entrega do pedido.\n\n` +
-            `Caso não tenha recebido o e-mail, faça login na conta e clique em "Acompanhar pedido", através do link abaixo:\n` +
-            `https://www.trilhadosolshop.com.br/account/`
-        );
-    }
+O prazo de entrega passa a contar após a confirmação do pagamento e a postagem do pedido.
 
-    else if (texto === '7') {
-        estados[msg.from] = { etapa: 'cpf' };
-        await client.sendMessage(msg.from,
-            `Perfeito! ☀️\n\n` +
-            `Para falar com o atendente, preciso de algumas informações.\n\n` +
-            `📄 Digite seu CPF:`
-        );
-    }
+📦 Produtos enviados a partir do Brasil: Prazo estimado: 5 a 15 dias úteis.
 
-});
+🌍Produtos enviados a partir do exterior: Prazo estimado: 15 a 45 dias úteis. 
+
+Os prazos informados são estimativas e podem sofrer variações em razão de fatores externos, como logística, períodos de alta demanda, feriados, greves, condições climáticas ou procedimentos operacionais das transportadoras.Para maiores dúvidas, acesse nosso site ou fale conosco aqui mesmo.
+
+Para mais detalhes sobre prazos e frete, acesse:
+
+Link: https://www.trilhadosolshop.com.br/politica-de-entrega/`
+    )
+
+    return
+  }
+
+  if (texto === '5') {
+    await client.sendMessage(
+      msg.from,
+      `💳 Formas de Pagamento:
+
+Todos os preços são apresentados em reais (R$) e podem ser alterados sem aviso prévio.
+
+Aceitamos as seguintes formas de pagamento:
+
+1. Cartão de Crédito: Visa, MasterCard, American Express, Elo e Hipercard.
+2. Boleto Bancário: Disponível para pagamento à vista.
+3. Pix: Pagamento instantâneo via QR Code ou chave Pix.
+
+Os pagamentos são processados por intermediadores financeiros independentes, que possuem seus próprios termos, políticas de segurança e privacidade.
+
+https://www.trilhadosolshop.com.br/termos-de-servico/`
+    )
+
+    return
+  }
+
+  if (texto === '6') {
+    await client.sendMessage(
+      msg.from,
+      `📦 Acompanhar Pedido:
+
+Assim que seu pedido for enviado, você receberá um código de rastreio por e-mail.
+
+Em pedidos enviados a partir do exterior, o rastreamento poderá apresentar atualizações intermitentes ou alterações ao ingressar no Brasil, o que não compromete a entrega do pedido.
+
+Caso não tenha recebido o e-mail, faça login na conta e clique em "Acompanhar pedido", através do link abaixo:
+https://www.trilhadosolshop.com.br/account/`
+    )
+
+    return
+  }
+
+  if (texto === '7') {
+    estados[msg.from] = { etapa: 'cpf' }
+
+    await client.sendMessage(
+      msg.from,
+      `Perfeito! ☀️
+
+Para falar com o atendente, preciso de algumas informações.
+
+📄 Digite seu CPF:`
+    )
+
+    return
+  }
+})
