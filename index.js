@@ -311,9 +311,7 @@ Para falar com o atendente, preciso de algumas informações.
 📧 Email: ${estados[msg.from].email}
 📦 Pedido: ${texto}
 
-👉 https://wa.me/${contato.number}
-
------------------------------`
+👉 https://wa.me/${contato.number}`
 
     try {
 
