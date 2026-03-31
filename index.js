@@ -4,7 +4,17 @@ const { Client, LocalAuth } = require("whatsapp-web.js")
 const client = new Client({
   puppeteer: {
     executablePath: '/usr/bin/chromium-browser',
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    headless: true,
+    timeout: 60000,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--no-first-run',
+      '--no-zygote',
+      '--single-process'
+    ]
   }
 });
 
