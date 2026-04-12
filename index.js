@@ -1,18 +1,35 @@
-const qrcode = require("qrcode-terminal")
-const { Client, LocalAuth } = require("whatsapp-web.js")
+const qrcode = require('qrcode-terminal')
+const { Client, LocalAuth } = require('whatsapp-web.js')
 
 const client = new Client({
   authStrategy: new LocalAuth(),
   puppeteer: {
     headless: true,
-    args: ['--no-sandbox','--disable-setuid-sandbox']
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
   }
 })
 
 const estados = {}
 
-const palavrasReset = ["oi","oii","ola","olá","menu","inicio","início","bom","bom dia","boa","boa tarde","boa noite","comprei","faz",
-                       "bom dia, tudo bem?","boa tarde, tudo bem?","boa noite, tudo bem?"];
+const palavrasReset = [
+  'oi',
+  'oii',
+  'ola',
+  'olá',
+  'menu',
+  'inicio',
+  'início',
+  'bom',
+  'bom dia',
+  'boa',
+  'boa tarde',
+  'boa noite',
+  'comprei',
+  'faz',
+  'bom dia, tudo bem?',
+  'boa tarde, tudo bem?',
+  'boa noite, tudo bem?'
+]
 
 const delay = ms => new Promise(res => setTimeout(res, ms))
 
@@ -20,36 +37,36 @@ const delay = ms => new Promise(res => setTimeout(res, ms))
 // VALIDAÇÕES
 // ============================
 
-function validarCPF(cpf){
-  cpf = cpf.replace(/\D/g,'')
+function validarCPF(cpf) {
+  cpf = cpf.replace(/\D/g, '')
 
-  if(cpf.length !== 11) return false
-  if(/^(\d)\1+$/.test(cpf)) return false
+  if (cpf.length !== 11) return false
+  if (/^(\d)\1+$/.test(cpf)) return false
 
   let soma = 0
   let resto
 
-  for(let i=1;i<=9;i++)
-    soma += parseInt(cpf.substring(i-1,i)) * (11-i)
+  for (let i = 1; i <= 9; i++)
+    soma += parseInt(cpf.substring(i - 1, i)) * (11 - i)
 
-  resto = (soma*10)%11
-  if(resto === 10 || resto === 11) resto = 0
-  if(resto !== parseInt(cpf.substring(9,10))) return false
+  resto = (soma * 10) % 11
+  if (resto === 10 || resto === 11) resto = 0
+  if (resto !== parseInt(cpf.substring(9, 10))) return false
 
   soma = 0
 
-  for(let i=1;i<=10;i++)
-    soma += parseInt(cpf.substring(i-1,i)) * (12-i)
+  for (let i = 1; i <= 10; i++)
+    soma += parseInt(cpf.substring(i - 1, i)) * (12 - i)
 
-  resto = (soma*10)%11
-  if(resto === 10 || resto === 11) resto = 0
+  resto = (soma * 10) % 11
+  if (resto === 10 || resto === 11) resto = 0
 
-  if(resto !== parseInt(cpf.substring(10,11))) return false
+  if (resto !== parseInt(cpf.substring(10, 11))) return false
 
   return true
 }
 
-function validarEmail(email){
+function validarEmail(email) {
   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return regex.test(email)
 }
@@ -58,13 +75,13 @@ function validarEmail(email){
 // EVENTOS
 // ============================
 
-client.on("qr", qr => {
-  console.log("Escaneie o QR Code")
-  qrcode.generate(qr,{small:true})
+client.on('qr', qr => {
+  console.log('Escaneie o QR Code')
+  qrcode.generate(qr, { small: true })
 })
 
-client.on("ready", ()=>{
-  console.log("🚀 WhatsApp conectado!")
+client.on('ready', () => {
+  console.log('🚀 WhatsApp conectado!')
 })
 
 client.initialize()
@@ -73,8 +90,7 @@ client.initialize()
 // BOT
 // ============================
 
-client.on("message_create", async msg => {
-
+client.on('message_create', async msg => {
   // 🚫 IGNORA mensagens do próprio bot (FORMA SEGURA)
   if (msg.from === client.info.wid._serialized) {
     return
@@ -84,15 +100,14 @@ client.on("message_create", async msg => {
   if (msg.fromMe) return
 
   // 👉 SE VOCÊ RESPONDEU → PAUSA BOT
-if (msg.fromMe && !msg.from.includes("@lid")) {
+  if (msg.fromMe && !msg.from.includes('@lid')) {
+    if (estados[msg.to]) {
+      estados[msg.to].pausado = true
+      //console.log("🛑 Bot pausado para:", msg.to)
+    }
 
-  if (estados[msg.to]) {
-    estados[msg.to].pausado = true
-    //console.log("🛑 Bot pausado para:", msg.to)
+    return
   }
-
-  return
-}
 
   if (!msg.body) return
 
@@ -107,7 +122,6 @@ if (msg.fromMe && !msg.from.includes("@lid")) {
   // ============================
 
   if (estados[msg.from]?.pausado) {
-
     if (!palavrasReset.includes(texto)) {
       return
     }
@@ -122,12 +136,11 @@ if (msg.fromMe && !msg.from.includes("@lid")) {
   // ============================
 
   if (!estados[msg.from]) {
-
     const contact = await msg.getContact()
-    const nome = contact.pushname || "Cliente"
+    const nome = contact.pushname || 'Cliente'
 
     estados[msg.from] = {
-      etapa: "menu"
+      etapa: 'menu'
     }
 
     await delay(1000)
@@ -136,7 +149,7 @@ if (msg.fromMe && !msg.from.includes("@lid")) {
 
     await client.sendMessage(
       msg.from,
-`Olá, ${nome.split(" ")[0]}! 👋
+      `Olá, ${nome.split(' ')[0]}! 👋
 
 Sou o Sunny ☀️, assistente virtual da *Trilha do Sol Shop*.
 
@@ -159,13 +172,11 @@ Digite o número abaixo para saber mais:
   // MENU VALIDAÇÃO
   // ============================
 
-  if (estados[msg.from].etapa === "menu") {
-
-    if (!["1","2","3","4","5","6","7"].includes(texto)) {
-
+  if (estados[msg.from].etapa === 'menu') {
+    if (!['1', '2', '3', '4', '5', '6', '7'].includes(texto)) {
       await client.sendMessage(
         msg.from,
-        "Desculpe, preciso que me diga qual número da opção deseja prosseguir."
+        'Desculpe, preciso que me diga qual número da opção deseja prosseguir.'
       )
 
       return
@@ -176,37 +187,44 @@ Digite o número abaixo para saber mais:
   // OPÇÕES
   // ============================
 
-  if (texto === "1") {
-    await client.sendMessage(msg.from,
-`🏕️ Produtos para Camping:
+  if (texto === '1') {
+    await client.sendMessage(
+      msg.from,
+      `🏕️ Produtos para Camping:
 
 Nosso site oferece vários artigos para camping.
 
-Link: https://www.trilhadosolshop.com.br/camping/`)
+Link: https://www.trilhadosolshop.com.br/camping/`
+    )
     return
   }
 
-  if (texto === "2") {
-    await client.sendMessage(msg.from,
-`🌊 Produtos para Praia:
+  if (texto === '2') {
+    await client.sendMessage(
+      msg.from,
+      `🌊 Produtos para Praia:
 
 Nosso site oferece vários artigos para praia.
 
-Link: https://www.trilhadosolshop.com.br/praia/`)
+Link: https://www.trilhadosolshop.com.br/praia/`
+    )
     return
   }
 
-  if (texto === "3") {
-    await client.sendMessage(msg.from,
-`🔥 Ofertas Imperdíveis:
+  if (texto === '3') {
+    await client.sendMessage(
+      msg.from,
+      `🔥 Ofertas Imperdíveis:
 
-Link: https://www.trilhadosolshop.com.br/promocoes/`)
+Link: https://www.trilhadosolshop.com.br/ofertas/`
+    )
     return
   }
 
-  if (texto === "4") {
-    await client.sendMessage(msg.from,
-`🚚 Prazos e Frete:
+  if (texto === '4') {
+    await client.sendMessage(
+      msg.from,
+      `🚚 Prazos e Frete:
 
 O prazo de entrega passa a contar após a confirmação do pagamento e a postagem do pedido.
 
@@ -214,25 +232,30 @@ O prazo de entrega passa a contar após a confirmação do pagamento e a postage
 
 🌍 Produtos do exterior: 15 a 45 dias úteis.
 
-https://www.trilhadosolshop.com.br/politica-de-entrega/`)
+https://www.trilhadosolshop.com.br/politica-de-entrega/`
+    )
     return
   }
 
-  if (texto === "5") {
-    await client.sendMessage(msg.from,
-`💳 Formas de Pagamento:
+  if (texto === '5') {
+    await client.sendMessage(
+      msg.from,
+      `💳 Formas de Pagamento:
 
 Cartão, Boleto e Pix.
 
-https://www.trilhadosolshop.com.br/termos-de-servico/`)
+https://www.trilhadosolshop.com.br/termos-de-servico/`
+    )
     return
   }
 
-  if (texto === "6") {
-    await client.sendMessage(msg.from,
-`📦 Acompanhar Pedido:
+  if (texto === '6') {
+    await client.sendMessage(
+      msg.from,
+      `📦 Acompanhar Pedido:
 
-https://www.trilhadosolshop.com.br/account/`)
+https://www.trilhadosolshop.com.br/account/`
+    )
     return
   }
 
@@ -240,13 +263,12 @@ https://www.trilhadosolshop.com.br/account/`)
   // ATENDENTE
   // ============================
 
-  if (texto === "7") {
-
-    estados[msg.from].etapa = "cpf"
+  if (texto === '7') {
+    estados[msg.from].etapa = 'cpf'
 
     await client.sendMessage(
       msg.from,
-`Perfeito! ☀️
+      `Perfeito! ☀️
 
 Para falar com o atendente, preciso de algumas informações.
 
@@ -260,17 +282,16 @@ Para falar com o atendente, preciso de algumas informações.
   // CPF
   // ============================
 
-  if (estados[msg.from].etapa === "cpf") {
-
+  if (estados[msg.from].etapa === 'cpf') {
     if (!validarCPF(texto)) {
-      await client.sendMessage(msg.from,"CPF inválido, digite novamente.")
+      await client.sendMessage(msg.from, 'CPF inválido, digite novamente.')
       return
     }
 
     estados[msg.from].cpf = texto
-    estados[msg.from].etapa = "email"
+    estados[msg.from].etapa = 'email'
 
-    await client.sendMessage(msg.from,"📧 Agora digite seu Email:")
+    await client.sendMessage(msg.from, '📧 Agora digite seu Email:')
     return
   }
 
@@ -278,17 +299,16 @@ Para falar com o atendente, preciso de algumas informações.
   // EMAIL
   // ============================
 
-  if (estados[msg.from].etapa === "email") {
-
+  if (estados[msg.from].etapa === 'email') {
     if (!validarEmail(texto)) {
-      await client.sendMessage(msg.from,"Email inválido, digite novamente.")
+      await client.sendMessage(msg.from, 'Email inválido, digite novamente.')
       return
     }
 
     estados[msg.from].email = texto
-    estados[msg.from].etapa = "pedido"
+    estados[msg.from].etapa = 'pedido'
 
-    await client.sendMessage(msg.from,"📦 Digite o Número do Pedido:")
+    await client.sendMessage(msg.from, '📦 Digite o Número do Pedido:')
     return
   }
 
@@ -296,15 +316,13 @@ Para falar com o atendente, preciso de algumas informações.
   // PEDIDO
   // ============================
 
-  if (estados[msg.from].etapa === "pedido") {
-
+  if (estados[msg.from].etapa === 'pedido') {
     estados[msg.from].pedido = texto
 
     const contato = await msg.getContact()
     const nomeCliente = contato.pushname || contato.number
 
-    const resumo =
-`📞 *NOVO ATENDIMENTO*
+    const resumo = `📞 *NOVO ATENDIMENTO*
 
 👤 Cliente: ${nomeCliente}
 📄 CPF: ${estados[msg.from].cpf}
@@ -314,26 +332,23 @@ Para falar com o atendente, preciso de algumas informações.
 👉 https://wa.me/${contato.number}`
 
     try {
-
-      const grupoId = "120363423361149730@g.us"
+      const grupoId = '120363423361149730@g.us'
 
       await client.sendMessage(grupoId, resumo)
-
     } catch (erro) {
-      console.log("Erro ao enviar para grupo:", erro)
+      console.log('Erro ao enviar para grupo:', erro)
     }
 
     await client.sendMessage(
       msg.from,
-`Obrigado! ☀️
+      `Obrigado! ☀️
 
 Já enviei suas informações para nosso atendente.
 Em instantes ele continuará o atendimento por aqui.`
     )
 
     estados[msg.from] = {
-        pausado: true
+      pausado: true
     }
   }
-
 })
